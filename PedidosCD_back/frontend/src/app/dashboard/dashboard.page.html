@@ -1,0 +1,381 @@
+<body>
+  <ion-content class="login-page" fullscreen>
+
+  <div class="login-header">
+    <div class="barra-superior">
+      <div class="top-row">
+        <ion-icon name="menu" class="icon-left" (click)="toggleMenu()"></ion-icon>
+        <h1 class="titulo-texto">{{ getTituloDashboard() }}</h1>
+        <ion-icon name="ellipsis-vertical" class="icon-right" (click)="toggleMenuDashboard()"></ion-icon>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sección de Filtro de Fechas -->
+<div class="filtro-container">
+  <div class="filtro-wrapper">
+    <!-- Botón de Filtro -->
+    <button 
+      class="filtro-btn" 
+      [class.activo]="filtroActivo"
+      (click)="toggleFiltroFechas()">
+      <ion-icon name="calendar"></ion-icon>
+      <span>{{ filtroActivo ? 'Filtro Activo' : 'Filtrar por Fecha' }}</span>
+      <span *ngIf="filtroActivo" class="filtro-badge">✓</span>
+    </button>
+
+    <!-- Panel de Filtro -->
+    <div class="filtro-panel" [class.abierto]="mostrarFiltroFechas">
+      
+      <!-- Header del Panel -->
+      <div class="filtro-panel-header">
+        <div class="filtro-panel-title">
+          <ion-icon name="funnel"></ion-icon>
+          <span>Filtrar por Rango</span>
+        </div>
+        <ion-icon name="close" (click)="cerrarFiltroFechas()"></ion-icon>
+      </div>
+
+      <!-- Contenido del Panel -->
+      <div class="filtro-panel-content">
+        
+      <!-- Fecha Inicio -->
+      <div class="filtro-campo fecha-con-icono">
+        <label>Fecha Inicio</label>
+        <div class="input-wrapper">
+          <input 
+            type="date" 
+            [(ngModel)]="filtroFechaInicio"
+            [max]="filtroFechaFin"
+            class="filtro-input"/>
+        </div>
+      </div>
+
+      <!-- Fecha Fin -->
+      <div class="filtro-campo fecha-con-icono">
+        <label>Fecha Fin</label>
+        <div class="input-wrapper">
+          <input 
+            type="date" 
+            [(ngModel)]="filtroFechaFin"
+            [min]="filtroFechaInicio"
+            class="filtro-input" />
+        </div>
+      </div>
+
+        <!-- Preview del Rango -->
+        <div *ngIf="filtroFechaInicio && filtroFechaFin" class="filtro-preview">
+          <p class="filtro-preview-label">Rango Seleccionado:</p>
+          <p class="filtro-preview-text">
+            {{ formatearFecha(filtroFechaInicio) }} - {{ formatearFecha(filtroFechaFin) }}
+          </p>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="filtro-acciones">
+          <button class="filtro-btn-secundario" (click)="limpiarFiltro()">
+            Limpiar
+          </button>
+          <button 
+            class="filtro-btn-primario" 
+            [disabled]="!filtroFechaInicio || !filtroFechaFin"
+            (click)="aplicarFiltro()">
+            Aplicar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overlay del Panel -->
+    <div 
+      class="filtro-overlay" 
+      *ngIf="mostrarFiltroFechas" 
+      (click)="cerrarFiltroFechas()">
+    </div>
+  </div>
+
+  <!-- Indicador de Filtro - Siempre Visible -->
+  <div class="filtro-indicador">
+    <span class="mostrando-filtro" *ngIf="!filtroActivo">Mostrando pedidos del día de hoy</span>
+    <span class="mostrando-filtro" *ngIf="filtroActivo">
+      Mostrando pedidos del {{ formatearFecha(filtroFechaInicio) }} al {{ formatearFecha(filtroFechaFin) }}
+    </span>
+    <button class="filtro-quitar-btn" *ngIf="filtroActivo" (click)="limpiarFiltro()">Quitar Filtro</button>
+  </div>
+</div>
+
+  <!-- Overlay del menú de dashboard -->
+  <div class="menu-dashboard-overlay" *ngIf="menuDashboardAbierto" (click)="cerrarMenuDashboard()"></div>
+
+  <!-- Menu desplegable de dashboard -->
+  <div class="menu-dashboard" [class.abierto]="menuDashboardAbierto">
+    <div class="menu-dashboard-header">
+      <ion-icon name="swap-vertical"></ion-icon>
+      <span>Tipo de Dashboard</span>
+    </div>
+    
+    <div class="menu-dashboard-opciones">
+      <div class="menu-dashboard-item" [class.activo]="tipoDashboard === 'completo'" (click)="cambiarTipoDashboard('completo')">
+        <ion-icon name="apps"></ion-icon>
+        <span>Todos los Dashboards</span>
+        <ion-icon name="checkmark-circle" *ngIf="tipoDashboard === 'completo'" class="check-icon"></ion-icon>
+      </div>
+      
+      <div class="menu-dashboard-item" [class.activo]="tipoDashboard === 'pedidos'" (click)="cambiarTipoDashboard('pedidos')">
+        <ion-icon name="pie-Chart"></ion-icon>
+        <span>Solo Pedidos</span>
+        <ion-icon name="checkmark-circle" *ngIf="tipoDashboard === 'pedidos'" class="check-icon"></ion-icon>
+      </div>
+      
+      <div class="menu-dashboard-item" [class.activo]="tipoDashboard === 'ventas'" (click)="cambiarTipoDashboard('ventas')">
+        <ion-icon name="podium"></ion-icon>
+        <span>Solo Ventas</span>
+        <ion-icon name="checkmark-circle" *ngIf="tipoDashboard === 'ventas'" class="check-icon"></ion-icon>
+      </div>
+      
+      <div class="menu-dashboard-item" [class.activo]="tipoDashboard === 'clientes'" (click)="cambiarTipoDashboard('clientes')">
+        <ion-icon name="people"></ion-icon>
+        <span>Solo Clientes</span>
+        <ion-icon name="checkmark-circle" *ngIf="tipoDashboard === 'clientes'" class="check-icon"></ion-icon>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay del menú lateral -->
+  <div class="menu-overlay" *ngIf="menuAbierto" (click)="cerrarMenu()"></div>
+
+  <!-- Menú lateral -->
+  <div class="menu-lateral" [class.abierto]="menuAbierto">
+    <div class="menu-header">
+      <div class="menu-user-info">
+        <p>Bienvenido,</p><p class="user-name" *ngIf="nombreUsuario">{{ nombreUsuario }} {{ apellidoUsuario }}</p>
+      </div>
+      <ion-icon name="close" class="icon-cerrar-menu" (click)="cerrarMenu()"></ion-icon>
+    </div>
+    
+    <div class="menu-contenido">
+      <div class="menu-item" (click)="IrAPerfil()">
+        <ion-icon name="person"></ion-icon>
+        <span>Perfil</span>
+      </div>
+      <div class="menu-divider"></div>
+      <div class="menu-item" (click)="Irapedidosmenu()">
+        <ion-icon name="cube"></ion-icon>
+        <span>Pedidos</span>
+      </div>
+      
+      <div class="menu-item" (click)="Irafacturasmenu()">
+        <ion-icon name="document-text"></ion-icon>
+        <span>Facturas</span>
+      </div>
+      
+      <div class="menu-item" (click)="Iradashboardsmenu()">
+        <ion-icon name="bar-chart"></ion-icon>
+        <span>Dashboards</span>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <div class="menu-item" (click)="IrAUsuarios()">
+        <ion-icon name="person"></ion-icon>
+        <span>Usuarios</span>
+      </div>
+
+      <div class="menu-item" (click)="IrListarClientes()">
+        <ion-icon name="people"></ion-icon>
+        <span>Clientes</span>
+      </div>
+
+      <div class="menu-item" (click)="IraProductos()">
+        <ion-icon name="bag"></ion-icon>
+        <span>Productos</span>
+      </div>
+      
+      <div class="menu-divider"></div>
+      
+     <div class="menu-item" (click)="IrMenu()">
+        <ion-icon name="arrow-undo"></ion-icon>
+        <span>Volver al Menu</span>
+      </div>
+
+      <div class="menu-item" (click)="cerrarSesion()">
+        <ion-icon name="log-out"></ion-icon>
+        <span>Cerrar Sesión</span>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="contenido">
+
+  <!-- Spinner de carga -->
+    <div *ngIf="cargando" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Cargando estadísticas...</p>
+    </div>
+
+    <!-- Contenido del dashboard -->
+    <div *ngIf="!cargando">
+
+      <!-- Tarjeta de Estado de Pedidos -->
+      <ion-card *ngIf="mostrarSeccionPedidos()">
+        <ion-card-header>
+          <ion-card-title>Estado de Pedidos</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          
+          <!-- Mensaje cuando no hay pedidos -->
+          <div *ngIf="totalPedidos === 0" class="empty-state">
+            <ion-icon name="pie-chart"></ion-icon>
+            <p class="empty-title">No hay pedidos registrados todavía</p>
+            <p class="empty-subtitle">Los pedidos aparecerán cuando los crees</p>
+          </div>
+
+          <!-- Grafico cuando hay pedidos -->
+          <div *ngIf="totalPedidos > 0">
+            <div class="resumen-total">
+              <div class="grafico-torta">
+                <svg viewBox="0 0 400 400" class="pie-chart">
+                  <circle cx="200" cy="200" r="150" fill="#f5f5f5"/>
+                  
+                  <ng-container *ngIf="totalPedidos > 0">
+                    <g *ngFor="let stat of estadisticas; let i = index">
+                      <circle 
+                        *ngIf="stat.porcentaje === 100"
+                        cx="200" 
+                        cy="200" 
+                        r="150" 
+                        [attr.fill]="stat.color"
+                        class="pie-segment"/>
+                      
+                      <path 
+                        *ngIf="stat.porcentaje > 0 && stat.porcentaje < 100"
+                        [attr.d]="calcularSegmento(i)" 
+                        [attr.fill]="stat.color"
+                        class="pie-segment"
+                        [attr.data-porcentaje]="stat.porcentaje"/>
+                    </g>
+                  </ng-container>
+                  
+                  <circle cx="200" cy="200" r="80" fill="white"/>
+
+                  <!-- Texto central -->
+                  <text x="200" y="195" text-anchor="middle" class="pie-center-text">
+                    Total
+                  </text>
+                  <text x="200" y="220" text-anchor="middle" class="pie-center-number">
+                    {{ totalPedidos }}
+                  </text>
+                </svg>
+              </div>
+            </div>
+
+            <div class="estadisticas-lista">
+              <div 
+                *ngFor="let stat of estadisticas" 
+                class="estadistica-item"
+                [style.border-left]="'4px solid ' + stat.color">
+                <div class="estadistica-info">
+                  <div class="estadistica-header">
+                    <span class="estadistica-nombre">{{ stat.estado }}</span>
+                    <span class="estadistica-porcentaje">{{ stat.porcentaje }}%</span>
+                  </div>
+                  <div class="estadistica-barra">
+                    <div 
+                      class="estadistica-progreso" 
+                      [style.width.%]="stat.porcentaje"
+                      [style.background-color]="stat.color">
+                    </div>
+                  </div>
+                  <span class="estadistica-cantidad">{{ stat.cantidad }} pedido(s)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Tarjeta de Productos Más Vendidos -->
+      <ion-card *ngIf="mostrarSeccionVentas()">
+        <ion-card-header>
+          <ion-card-title>
+            Productos Más Vendidos
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          
+          <!-- Mensaje cuando no hay productos -->
+          <div *ngIf="productosVendidos.length === 0" class="empty-state">
+            <ion-icon name="podium"></ion-icon>
+            <p class="empty-title">No hay productos vendidos todavía</p>
+            <p class="empty-subtitle">Los productos aparecerán cuando completes pedidos</p>
+          </div>
+
+          <!-- Gráfico de barras cuando hay productos -->
+          <div *ngIf="productosVendidos.length > 0" class="grafico-barras">
+            <div 
+              *ngFor="let producto of productosVendidos" 
+              class="barra-item">
+              <div class="barra-info">
+                <span class="barra-nombre">{{ producto.nombre }}</span>
+                <span class="barra-cantidad">{{ producto.cantidad }} cajas</span>
+              </div>
+              <div class="barra-contenedor">
+                <div 
+                  class="barra-progreso-horizontal" 
+                  [style.width.%]="(producto.cantidad / maxCantidadProducto) * 100"
+                  [style.background-color]="producto.color">
+                  <span class="barra-porcentaje">{{ producto.porcentaje }}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Tarjeta de Clientes con Más Pedidos -->
+      <ion-card *ngIf="mostrarSeccionClientes()">
+        <ion-card-header>
+          <ion-card-title>
+            Clientes con Más Pedidos
+          </ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          
+          <!-- Mensaje cuando no hay clientes -->
+          <div *ngIf="clientesPedidos.length === 0" class="empty-state">
+            <ion-icon name="people"></ion-icon>
+            <p class="empty-title">No hay pedidos de clientes todavía</p>
+            <p class="empty-subtitle">Los clientes aparecerán cuando realices pedidos</p>
+          </div>
+
+          <!-- Gráfico de barras cuando hay clientes -->
+          <div *ngIf="clientesPedidos.length > 0" class="grafico-barras">
+            <div 
+              *ngFor="let cliente of clientesPedidos" 
+              class="barra-item">
+              <div class="barra-info">
+                <span class="barra-nombre">{{ cliente.nombre }}</span>
+                <span class="barra-cantidad">{{ cliente.cantidad }} pedido(s)</span>
+              </div>
+              <div class="barra-contenedor">
+                <div 
+                  class="barra-progreso-horizontal" 
+                  [style.width.%]="(cliente.cantidad / maxCantidadCliente) * 100"
+                  [style.background-color]="cliente.color">
+                  <span class="barra-porcentaje">{{ cliente.porcentaje }}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </ion-card-content>
+      </ion-card>
+
+    </div>
+  </div>
+
+</ion-content>
+</body>

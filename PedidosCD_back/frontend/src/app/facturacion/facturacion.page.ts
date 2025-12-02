@@ -1,0 +1,401 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { IonContent, IonButton, IonSearchbar, IonItem, 
+  IonLabel, IonIcon, IonCheckbox, IonSpinner, IonFab, IonFabList, IonFabButton, IonList,} from '@ionic/angular/standalone';
+import { ApiService } from '../services/api.spec';
+import { NotificacionService } from '../services/notificacion.service';
+import { addIcons } from 'ionicons';
+import { Router } from '@angular/router';
+import { pieChart, statsChart, refresh, hourglassOutline, checkmarkCircleOutline, timeOutline, checkmarkDoneOutline, 
+  chevronUpCircle, pencil, addCircle, removeCircle, filter, menu, close, trashBin, checkmarkCircle, search,
+  documentText, cube, calculator, scale, eye, closeCircle, send, logOut, barChart, people, personAdd, arrowUndo, bag, person, download} from 'ionicons/icons';
+import { Perimisos } from '../services/perimisos';
+import { AlertController } from '@ionic/angular';
+
+
+// Interfaces
+export interface Producto {
+  id: number;
+  nombre: string;
+  cajas: number | null;
+  pesos?: number[];
+}
+
+export interface Pedido {
+  id: number;
+  nombre: string;
+  cliente: string;
+  direccion: string;
+  productos: Producto[];
+  seleccionado?: boolean;
+  estado?: 'pendiente_pesos' | 'listo_facturar' | 'pendiente_confirmacion' | 'completado';
+}
+
+//Iconos
+addIcons({ 
+  pieChart, statsChart, refresh, hourglassOutline, checkmarkCircleOutline, timeOutline, checkmarkDoneOutline, 
+  chevronUpCircle, pencil, addCircle, removeCircle, filter, menu, close, trashBin, checkmarkCircle, search,
+  documentText, cube, calculator, scale, eye, closeCircle, send, logOut, barChart, people, personAdd, arrowUndo, bag, person, download
+});
+
+@Component({
+  selector: 'app-facturacion',
+  templateUrl: './facturacion.page.html',
+  styleUrls: ['./facturacion.page.scss'],
+  standalone: true,
+  imports: [
+    FormsModule,
+    CommonModule,
+    IonContent, IonButton, IonSearchbar, IonList, IonItem,
+     IonIcon, IonCheckbox, IonSpinner, IonFab, IonFabList, IonFabButton
+  ]
+})
+export class FacturacionPage implements OnInit {
+  
+  pedidos: Pedido[] = [];
+  pedidosFiltrados: Pedido[] = [];
+  terminoBusqueda: string = '';
+  cargando: boolean = true;
+  
+  mostrarDetallePesos: boolean = false;
+  pedidoDetalle: Pedido | null = null;
+  
+  mostrarSeleccionMultiple: boolean = false;
+
+  //Variables del menú
+  menuAbierto: boolean = false;
+  nombreUsuario: string = '';
+  apellidoUsuario: string = '';
+
+  puedeIr = false;
+
+  constructor(private api: ApiService, 
+    private router: Router, private permisos: Perimisos,
+    private notificaciones: NotificacionService,
+    private alertController: AlertController) { }
+
+  async ionViewWillEnter() {
+    this.cargando = true;
+    try {
+      await Promise.all([
+    await this.cargarPedidosPendientesConfirmacion()
+      ]);
+    } catch (error) {
+      console.error('Error cargando dashboards:', error);
+    } finally {
+      this.cargando = false;
+    }
+  }
+
+  async ngOnInit() {
+    this.puedeIr = await this.permisos.checkPermission('view_usuarios')
+    await this.cargarPedidosPendientesConfirmacion();
+    this.cargarDatosUsuario();
+    // Inicializa el servicio de avisos si hay sesión
+    try { await this.notificaciones.start(); } catch {}
+  }
+
+    async cargarDatosUsuario() {
+    const usuario = await this.api.getUsuarioActual();
+    if (usuario) {
+      this.nombreUsuario = usuario.nombre;
+      this.apellidoUsuario = usuario.apellido;
+      console.log('Usuario cargado:', usuario); 
+    } else {
+      //Si no hay usuario, redirigir al login
+      console.warn('No hay usuario en IndexedDB, redirigiendo al login');
+      this.router.navigate(['/login']);
+    }
+  }
+
+  async cargarPedidosPendientesConfirmacion() {
+    try {
+      this.cargando = true;
+      const todosPedidos = await this.api.listarPedidos();
+      
+      //Filtrar solo los que están en 'pendiente_confirmacion'
+      this.pedidos = todosPedidos
+        .filter((pedido: any) => pedido.estado === 'pendiente_confirmacion')
+        .map((pedido: any) => this.mapearPedidoBackend(pedido));
+      
+      this.pedidosFiltrados = [...this.pedidos];
+      console.log('Pedidos pendientes de confirmación:', this.pedidos);
+      
+    } catch (error) {
+      console.error('Error al cargar pedidos:', error);
+      await this.notificaciones.showError('Error al cargar los pedidos de facturación');
+    } finally {
+      this.cargando = false;
+    }
+  }
+
+  private mapearPedidoBackend(pedidosBackend: any): Pedido {
+    const productos: Producto[] = pedidosBackend.lineas.map((linea: any) => {
+      const pesos = linea.cajas ? linea.cajas
+        .map((caja: any) => caja.peso)
+        .filter((peso: number) => peso > 0) 
+        : [];
+
+      return {
+        id: linea.producto.id,
+        nombre: linea.producto.nombre,
+        cajas: linea.cantidad_cajas,
+        pesos: pesos.length > 0 ? pesos : undefined 
+      };
+    });
+
+    return {
+      id: pedidosBackend.id,
+      nombre: `pedido ${pedidosBackend.id}`,
+      cliente: (pedidosBackend.cliente && (pedidosBackend.cliente.nombre || pedidosBackend.cliente.razon_social)) || 'Cliente por defecto',
+      direccion: pedidosBackend.direccion,
+      productos: productos,
+      seleccionado: false,
+      estado: pedidosBackend.estado || 'pendiente_confirmacion'
+    };
+  }
+
+  //Busqueda
+  buscarPedidos(event: any) {
+    const termino = event.target.value.toLowerCase().trim();
+    this.terminoBusqueda = termino;
+    
+    if (!termino) {
+      this.pedidosFiltrados = [...this.pedidos];
+      return;
+    }
+    
+    this.pedidosFiltrados = this.pedidos.filter(pedido => {
+      return pedido.nombre.toLowerCase().includes(termino) ||
+             pedido.cliente.toLowerCase().includes(termino) ||
+             pedido.direccion.toLowerCase().includes(termino) ||
+             pedido.productos.some(prod => prod.nombre.toLowerCase().includes(termino));
+    });
+  }
+
+  limpiarBusqueda() {
+    this.terminoBusqueda = '';
+    this.pedidosFiltrados = [...this.pedidos];
+  }
+
+  // Acciones de facturación
+  async verFactura(pedido: Pedido) {
+    try {
+      await this.api.previsualizarFacturaPorPedido(pedido.id);
+    } catch (error) {
+      console.error('Error al previsualizar factura:', error);
+      await this.notificaciones.showError('No se pudo previsualizar la factura');
+    }
+  }
+
+  async generarFacturasSeleccionadas() {
+    const seleccionados = this.pedidos.filter(p => p.seleccionado);
+    if (seleccionados.length === 0) {
+      await this.notificaciones.showWarning('Selecciona al menos un pedido');
+      return;
+    }
+    try {
+      for (const pedido of seleccionados) {
+        await this.api.generarFacturaPorPedido(pedido.id);
+      }
+      await this.notificaciones.showSuccess(`Se generaron ${seleccionados.length} factura(s).`);
+    } catch (error) {
+      console.error('Error generando facturas:', error);
+      await this.notificaciones.showError('Ocurrió un error al generar alguna factura');
+    }
+  }
+
+  //Detalle de pesos
+  abrirDetallePesos(pedido: Pedido) {
+    this.pedidoDetalle = pedido;
+    this.mostrarDetallePesos = true;
+  }
+
+  cerrarDetallePesos() {
+    this.mostrarDetallePesos = false;
+    this.pedidoDetalle = null;
+  }
+
+  //Calculos
+  getPesoTotal(producto: Producto): number {
+    if (!producto.pesos || producto.pesos.length === 0) return 0;
+    return producto.pesos.reduce((sum, peso) => sum + (peso || 0), 0);
+  }
+
+  calcularPesoTotalDelPedido(pedido: Pedido): number {
+    let total = 0;
+    pedido.productos.forEach(prod => {
+      total += this.getPesoTotal(prod);
+    });
+    return total;
+  }
+
+  //Selección múltiple
+  async activarSeleccionMultiple() {
+    if (this.pedidos.length === 0) {
+      await this.notificaciones.showWarning('No hay pedidos para seleccionar');
+      return;
+    }
+    this.mostrarSeleccionMultiple = true;
+    this.pedidos.forEach(pedido => pedido.seleccionado = false);
+  }
+
+  cancelarSeleccionMultiple() {
+    this.mostrarSeleccionMultiple = false;
+    this.pedidos.forEach(pedido => pedido.seleccionado = false);
+  }
+
+  toggleSeleccionPedido(pedido: Pedido) {
+    pedido.seleccionado = !pedido.seleccionado;
+  }
+
+  get pedidosSeleccionados(): number {
+    return this.pedidos.filter(p => p.seleccionado).length;
+  }
+
+  //Confirmar facturación
+  async confirmarFacturacionSeleccionados() {
+    const seleccionados = this.pedidos.filter(p => p.seleccionado);
+    
+    if (seleccionados.length === 0) {
+      await this.notificaciones.showWarning('Selecciona al menos un pedido para confirmar');
+      return;
+    }
+
+    const confirmar = await this.notificaciones.showConfirm(
+      `Esto cambiará el estado de ${seleccionados.length} pedido(s) a "Completado".`,
+      '¿Confirmar la facturación?',
+      'Sí, confirmar',
+      'Cancelar'
+    );
+    
+    if (!confirmar) return;
+    
+    try {
+      //Cambiar estado a 'completado'
+      for (const pedido of seleccionados) {
+        await this.api.generarFacturaPorPedido(pedido.id);
+        await this.api.actualizarEstadoPedido(pedido.id, 'completado');
+        await this.recargarPedidos();
+        try { await this.notificaciones.checkNow(); } catch {}
+      }
+
+      this.pedidos = this.pedidos.filter(p => !p.seleccionado);
+      this.pedidosFiltrados = [...this.pedidos];
+      
+      this.mostrarSeleccionMultiple = false;
+      await this.notificaciones.showSuccess(`${seleccionados.length} pedido(s) confirmado(s) exitosamente`);
+      
+    } catch (error) {
+      console.error('Error al confirmar facturación:', error);
+      await this.notificaciones.showError('Error al confirmar la facturación');
+    }
+  }
+
+  async confirmarFacturacionIndividual(pedido: Pedido) {
+    const confirmar = await this.notificaciones.showConfirm(
+      `Dirección: ${pedido.direccion}\n\nEsto cambiará su estado a "Completado".`,
+      `¿Confirmar la facturación del ${pedido.nombre}?`,
+      'Sí, confirmar',
+      'Cancelar'
+    );
+    
+    if (!confirmar) return;
+    
+    try {
+      await this.api.generarFacturaPorPedido(pedido.id);
+      await this.api.actualizarEstadoPedido(pedido.id, 'completado');
+      try { await this.notificaciones.checkNow(); } catch {}
+      await this.recargarPedidos();
+      
+      //Remover de la lista
+      this.pedidos = this.pedidos.filter(p => p.id !== pedido.id);
+      this.pedidosFiltrados = [...this.pedidos];
+      
+      await this.notificaciones.showSuccess(`${pedido.nombre} confirmado exitosamente`);
+      
+    } catch (error) {
+      console.error('Error al confirmar facturación:', error);
+      await this.notificaciones.showError('Error al confirmar la facturación');
+    }
+  }
+
+  ngOnDestroy() {
+    this.menuAbierto = false;
+  }
+
+  async recargarPedidos() {
+  await this.cargarPedidosPendientesConfirmacion();
+}
+
+  //Control del menú
+  toggleMenu() {
+    this.menuAbierto = !this.menuAbierto;
+  }
+
+  cerrarMenu() {
+    this.menuAbierto = false;
+  }
+
+  //Navegación desde menú lateral
+  Irapedidosmenu() {
+    this.cerrarMenu();
+    this.router.navigate(['/pedidos']);
+  }
+
+  Irafacturasmenu() {
+    this.cerrarMenu();
+    this.router.navigate(['/facturacion']);
+  }
+
+  Iradashboardsmenu() {
+    this.cerrarMenu();
+    this.router.navigate(['/dashboard']);
+  }
+
+  IrAUsuarios(){
+    this.cerrarMenu();
+    this.router.navigate(['/usuarios'])
+  }
+
+  IrAPerfil(){
+    this.cerrarMenu();
+    this.router.navigate(['/perfil'])
+  }
+  
+  IrMenu() {
+    this.cerrarMenu();
+    this.router.navigate(['/hub']);
+  }
+
+  IrClientes() {
+    this.cerrarMenu();
+    this.router.navigate(['/clientes']);
+  }
+
+  IrListarClientes() {
+    this.cerrarMenu();
+    this.router.navigate(['/lista-clientes']);
+  }
+
+  IraProductos(){
+    this.cerrarMenu();
+    this.router.navigate(['/productos']);
+  }
+
+  //Cerrar sesión
+  async cerrarSesion() {
+    const confirmar = await this.notificaciones.showConfirm(
+      '¿Estás seguro que deseas cerrar sesión?',
+      'Cerrar Sesión',
+      'Sí, cerrar',
+      'Cancelar'
+    );
+    
+    if (confirmar) {
+      this.api.logout();
+      this.cerrarMenu();
+    }
+  }
+}

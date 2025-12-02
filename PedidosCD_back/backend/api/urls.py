@@ -1,0 +1,32 @@
+from django.urls import path
+from rest_framework.routers import DefaultRouter
+from .views import pedidos, usuarios, clientes, avisos
+from .views.facturas import GenerarFacturaPorPedido
+from .views.pedidos import clientes_con_mas_pedidos
+
+
+router = DefaultRouter()
+router.register(r'pedidos', pedidos.PedidoViewSet, basename='pedidos')
+
+urlpatterns = [
+    path('lista/usuarios', usuarios.lista_usuarios, name="lista-usuarios"),
+    path('password-reset-request/', usuarios.password_reset_request),
+    path('password-reset-confirm/', usuarios.password_reset_confirm),
+    path('password-reset-change/', usuarios.password_reset_change),
+    path('usuarios/lista', usuarios.usuario_lista, name="usuario-lista"),
+    path('usuarios/permisos', usuarios.permisos_usuario, name="usuario-permisos"),
+    path('usuarios/perfil', usuarios.perfil_actual, name='usuario-perfil'),
+    path('productos/', pedidos.productos, name="productos"),
+    path('lista/clientes', clientes.ClienteVIew.as_view(), name="lista_clientes"),
+    path("agregar-cliente/", clientes.agregar_cliente, name="agregar-cliente"),
+    path("editar/cliente/<str:pk>", clientes.editar_cliente, name="editar-cliente"),
+    path("eliminar/cliente/<str:pk>/", clientes.eliminar_cliente, name="eliminar-cliente"),
+    path('facturas/generar-por-pedido/<int:pedido_id>', GenerarFacturaPorPedido.as_view(), name='facturas-generar-por-pedido'),
+    path('asignar/precio', pedidos.asignar_precio_v2, name="asignar-precio"),
+    path('editar/stock', pedidos.editar_stock, name="editar-stock"),
+    path('datos/cliente/<str:pk>', clientes.ClienteVIew.as_view(), name="datos-cliente"),
+    path('avisos/', avisos.listar_avisos, name='avisos-listar'),
+    path('productos/mas-vendidos/', pedidos.productos_mas_vendidos, name='productos-mas-vendidos'),
+    path('clientes-mas-pedidos/', pedidos.clientes_con_mas_pedidos, name='clientes-mas-pedidos'),
+    path('dar/permisos/<int:pk>', usuarios.dar_permisos, name="dar-permisos"),
+] + router.urls

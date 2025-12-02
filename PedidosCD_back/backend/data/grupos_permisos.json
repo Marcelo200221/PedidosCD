@@ -1,0 +1,36 @@
+{
+    "gerente": [
+        "view_pedidos",
+        "view_usuarios",
+        "view_reportes",
+        "create_pedidos",
+        "edit_pedidos",
+        "delete_pedidos",
+        "view_facturar",
+        "view_clientes",
+        "agregar_clientes",
+        "editar_clientes",
+        "eliminar_clientes",
+        "view_productos",
+        "edit_productos"
+    ],
+    "monitor": [
+        "view_pedidos",
+        "create_pedidos",
+        "edit_pedidos",
+        "delete_pedidos",
+        "view_facturar",
+        "view_clientes",
+        "agregar_clientes",
+        "editar_clientes",
+        "view_productos",
+        "edit_productos"
+    ],
+    "repartidor": [
+        "view_pedidos",
+        "create_pedidos",
+        "edit_pedidos",
+        "view_clientes",
+        "view_productos"
+    ]
+}
